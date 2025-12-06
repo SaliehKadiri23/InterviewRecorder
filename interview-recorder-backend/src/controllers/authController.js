@@ -26,18 +26,6 @@ const signup = async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      matricNumber: matricNumber.toUpperCase() 
-    });
-
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        error: 'Matric number already exists'
-      });
-    }
-
     // Create new user
     const user = await User.create({
       matricNumber: matricNumber.toUpperCase(),
