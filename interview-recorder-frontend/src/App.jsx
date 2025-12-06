@@ -3,7 +3,7 @@ import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
-import { InterviewList } from './pages/interviews/InterviewList';
+import InterviewList from './pages/interviews/InterviewList';
 import InterviewForm from './components/interviews/InterviewForm';
 
 function App() {

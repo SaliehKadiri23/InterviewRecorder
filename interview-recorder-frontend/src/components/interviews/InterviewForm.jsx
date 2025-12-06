@@ -284,9 +284,9 @@ const InterviewForm = () => {
               max={question.max || 5}
               value={value || 0}
               onChange={(e) => handleResponseChange(question.id, parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <div className="text-center mt-1 font-medium text-primary-600">
+            <div className="text-center mt-1 font-medium text-blue-600">
               {value || 0}
             </div>
           </div>
