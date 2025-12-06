@@ -1,9 +1,19 @@
 import { getSyncQueue, clearSyncQueue, markAsSynced, getInterviews, updateInterview, deleteInterview } from '../db/database';
 import axios from '../utils/axios';
 
+// Global variable to track sync status
+let isSyncInProgress = false;
+
 // Sync all pending interviews
 const syncPendingInterviews = async () => {
+  if (isSyncInProgress) {
+    console.log('Sync already in progress, skipping');
+    return { success: false, syncedCount: 0, errors: [], message: 'Sync in progress' };
+  }
+
   try {
+    isSyncInProgress = true;
+    
     const queue = await getSyncQueue();
     
     if (queue.length === 0) {
@@ -26,7 +36,7 @@ const syncPendingInterviews = async () => {
           result = await syncSingleInterview(item.data);
         } else if (item.action === 'delete') {
           // Handle delete sync
-          result = await syncDeleteInterview(item.data);
+          result = await syncDeleteInterview(item.data.id || item.data.localId);
         }
 
         if (result.success) {
@@ -48,7 +58,9 @@ const syncPendingInterviews = async () => {
     return { success: true, syncedCount, errors };
   } catch (error) {
     console.error('Error syncing pending interviews:', error);
-    throw new Error(`Sync failed: ${error.message}`);
+    return { success: false, syncedCount: 0, errors: [{ error: error.message }], message: 'Sync failed' };
+  } finally {
+    isSyncInProgress = false;
   }
 };
 
@@ -64,7 +76,11 @@ const syncSingleInterview = async (interview) => {
       response = await axios.post('/api/interviews', interviewData);
     } else {
       // This is an existing interview that was updated, so update it
-      response = await axios.put(`/api/interviews/${interview.id}`, interviewData);
+      const interviewId = interview.id || interview._id;
+      if (!interviewId) {
+        throw new Error('Interview ID is required for update');
+      }
+      response = await axios.put(`/api/interviews/${interviewId}`, interviewData);
     }
 
     if (response.data.success) {
@@ -80,11 +96,11 @@ const syncSingleInterview = async (interview) => {
       handleSyncSuccess(localId, response.data.data._id);
       return { success: true, data: response.data.data };
     } else {
-      throw new Error('Server returned failure');
+      throw new Error(response.data.error || 'Server returned failure');
     }
   } catch (error) {
     console.error('Error syncing single interview:', error);
-    handleSyncFailure(interview.localId || interview.id, error);
+    handleSyncFailure(interview.localId || interview.id || interview._id, error);
     throw error;
   }
 };
@@ -92,14 +108,16 @@ const syncSingleInterview = async (interview) => {
 // Sync a delete operation
 const syncDeleteInterview = async (interviewId) => {
   try {
-    const response = await axios.delete(`/api/interviews/${interviewId}`);
+    const response = await axios.delete(`/api/interviews/${interviewId || 'unknown'}`);
 
     if (response.data.success) {
       // Delete the local record
-      await deleteInterview(interviewId);
+      if (interviewId) {
+        await deleteInterview(interviewId);
+      }
       return { success: true };
     } else {
-      throw new Error('Server returned failure for delete');
+      throw new Error(response.data.error || 'Server returned failure for delete');
     }
   } catch (error) {
     console.error('Error syncing delete:', error);
@@ -129,9 +147,59 @@ const handleSyncFailure = async (localId, error) => {
   // - Show user notification
 };
 
+// Register background sync when online
+const registerBackgroundSync = async () => {
+  if ('serviceWorker' in navigator && 'sync' in navigator.serviceWorker) {
+    try {
+      // Register a sync event named 'sync-interviews'
+      await navigator.serviceWorker.ready;
+      await navigator.serviceWorker.controller?.sync?.register('sync-interviews');
+      console.log('Background sync registered for interviews');
+    } catch (error) {
+      console.error('Background sync registration failed:', error);
+    }
+  } else {
+    console.log('Background Sync is not supported in this browser');
+    // Fallback: try manual sync when online
+    if (navigator.onLine) {
+      await syncPendingInterviews();
+    }
+  }
+};
+
+// Listen for sync requests from service worker
+const setupSyncListener = () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'BACKGROUND_SYNC_REQUEST') {
+        // Service worker is requesting a sync
+        syncPendingInterviews();
+      }
+    });
+  }
+};
+
+// Initialize sync functionality
+const initializeSync = () => {
+  setupSyncListener();
+  
+  // Listen for online/offline events
+  window.addEventListener('online', async () => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      // Notify the service worker that we're online
+      navigator.serviceWorker.controller.postMessage({ type: 'BROWSER_ONLINE' });
+    } else {
+      // Fallback: sync now if service worker is not available
+      await syncPendingInterviews();
+    }
+  });
+};
+
 export {
   syncPendingInterviews,
   syncSingleInterview,
   handleSyncSuccess,
-  handleSyncFailure
+  handleSyncFailure,
+  registerBackgroundSync,
+  initializeSync
 };

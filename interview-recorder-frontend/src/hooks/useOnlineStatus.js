@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
-import { syncPendingInterviews } from '../services/syncService';
+import { syncPendingInterviews, initializeSync, registerBackgroundSync } from '../services/syncService';
 
 const useOnlineStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
+    // Initialize sync functionality
+    initializeSync();
+    
     // Set initial status
     setIsOnline(navigator.onLine);
 
     // Event handlers
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Register background sync when coming online
+      registerBackgroundSync();
+    };
     const handleOffline = () => setIsOnline(false);
 
     // Add event listeners
