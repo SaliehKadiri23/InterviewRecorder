@@ -36,8 +36,13 @@ const getInterviews = async (filters = {}) => {
       collection = collection.where('synced').equals(filters.synced);
     }
 
-    const interviews = await collection.sortBy('timestamp');
-    return interviews.reverse(); // Return in descending order (newest first)
+    // Get all items and then sort them
+    let interviews = await collection.toArray();
+    
+    // Sort by timestamp (newest first)
+    interviews.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    return interviews;
   } catch (error) {
     throw new Error(`Failed to get interviews: ${error.message}`);
   }

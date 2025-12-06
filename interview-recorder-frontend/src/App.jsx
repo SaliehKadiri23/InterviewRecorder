@@ -5,6 +5,7 @@ import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
 import InterviewList from './pages/interviews/InterviewList';
 import InterviewForm from './components/interviews/InterviewForm';
+import InterviewDetailPage from './pages/interviews/InterviewDetailPage';
 
 function App() {
   return (
@@ -30,6 +31,11 @@ function App() {
         <Route path="/interviews/new" element={
           <Layout>
             <InterviewForm />
+          </Layout>
+        } />
+        <Route path="/interviews/:id" element={
+          <Layout>
+            <InterviewDetailPage />
           </Layout>
         } />
       </Routes>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from '../../utils/axios';
 import { 
   getInterviews, 
   getSyncQueue, 
@@ -35,17 +36,56 @@ const InterviewList = () => {
     try {
       setLoading(true);
       
-      // Get all interviews (both local and synced)
-      let allInterviews = await getInterviews();
+      // Get current user info from auth service
+      let currentUserMatric = null;
       
-      // Get current user info (in a real app, this would come from context or auth)
-      const currentUserMatric = localStorage.getItem('current_user_matric') || 'CURRENT_USER';
+      try {
+        // Decode JWT token to get user info
+        const token = localStorage.getItem('interview_recorder_token');
+        
+        if (token) {
+          // Simple JWT decode (in a real implementation, use a proper library)
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const tokenPayload = tokenParts[1];
+            const decodedPayload = JSON.parse(atob(tokenPayload));
+            // The matricNumber should be in the payload
+            currentUserMatric = decodedPayload.matricNumber || decodedPayload.user?.matricNumber;
+          }
+        }
+      } catch (decodeError) {
+        console.warn('Could not decode token:', decodeError);
+        // Continue without current user matric
+      }
       
-      // Update interviews with user info
-      allInterviews = allInterviews.map(interview => ({
-        ...interview,
-        isOwn: interview.interviewerMatricNumber === currentUserMatric
-      }));
+      // Get local interviews from IndexedDB
+      let localInterviews = await getInterviews();
+      
+      // Get online interviews from backend API
+      let onlineInterviews = [];
+      const token = localStorage.getItem('interview_recorder_token');
+      if (token) { // Only fetch if we have a token
+        try {
+          // Use our axios instance which handles auth headers automatically
+          const response = await axios.get('/api/interviews');
+          
+          if (response.data.success && Array.isArray(response.data.data)) {
+            // Mark online interviews as synced
+            onlineInterviews = response.data.data.map(interview => ({
+              ...interview,
+              synced: true, // These are from the server, so they're synced
+              isOwn: currentUserMatric ? interview.interviewerMatricNumber === currentUserMatric : false
+            }));
+          }
+        } catch (apiError) {
+          console.error('Error fetching online interviews:', apiError);
+          // Continue with just local data
+        }
+      }
+      
+      // Combine local and online interviews
+      // For now, let's merge them, prioritizing online data for updates
+      const allInterviews = [...onlineInterviews, ...localInterviews];
       
       setInterviews(allInterviews);
       
@@ -98,9 +138,7 @@ const InterviewList = () => {
     
     // Apply interviewer filter
     if (filters.interviewer === 'My Interviews') {
-      // In a real app, get current user matric from auth context
-      const currentUserMatric = localStorage.getItem('current_user_matric') || 'CURRENT_USER';
-      result = result.filter(i => i.interviewerMatricNumber === currentUserMatric);
+      result = result.filter(i => i.isOwn === true);
     }
     
     // Apply sort
@@ -347,7 +385,7 @@ const InterviewList = () => {
       ) : (
         <div className="space-y-4">
           {filteredInterviews.map((interview) => (
-            <div key={interview.id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+            <div key={interview.id || interview._id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -374,14 +412,19 @@ const InterviewList = () => {
                 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => navigate(`/interviews/${interview.id}`)}
+                    onClick={() => {
+                      const interviewId = interview.id || interview._id;
+                      if (interviewId) {
+                        navigate(`/interviews/${interviewId}`);
+                      }
+                    }}
                     className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                   >
                     View
                   </button>
                   {interview.isOwn && (
                     <button
-                      onClick={() => handleDelete(interview.id)}
+                      onClick={() => handleDelete(interview.id || interview._id)}
                       className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
                     >
                       Delete
