@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     uppercase: true,
     trim: true,
-    match: [/^[A-Z]{3}\/\d{4}\/\d{3}$/, 'Please enter a valid matric number format (e.g., CSC/2020/001)'],
+    match: [/^[A-Z0-9]+\/[A-Z0-9\/]+\/[A-Z0-9]+$/, 'Please enter a valid matric number format (e.g., FUKU/SCI/21B/COM/0041 or CSC/2020/001)'],
     index: true
   },
   password: {

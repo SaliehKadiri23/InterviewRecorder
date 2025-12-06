@@ -44,6 +44,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'API is running' });
 });
 
+// Import auth routes
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
