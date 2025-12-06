@@ -6,7 +6,7 @@ export const Layout = ({ children }) => {
       {/* Header */}
       <header className="bg-primary-600 text-white shadow">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold">Interview Recorder</h1>
+          <h1 className="text-xl text-black font-bold">Interview Recorder</h1>
           <nav>
             <ul className="flex space-x-4">
               <li><a href="/dashboard" className="hover:underline">Dashboard</a></li>

@@ -207,7 +207,7 @@ const getQuestionsByRole = (role) => {
   }
 };
 
-module.exports = {
+export {
   studentQuestions,
   classRepQuestions,
   lecturerQuestions,
