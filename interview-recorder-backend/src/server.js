@@ -48,6 +48,10 @@ app.get('/', (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
+// Import interview routes
+const interviewRoutes = require('./routes/interviewRoutes');
+app.use('/api/interviews', interviewRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
