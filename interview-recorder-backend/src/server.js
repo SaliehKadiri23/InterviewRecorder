@@ -4,15 +4,22 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from .env file
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Import database connection
 const connectDB = require('./config/database');
 
 // Initialize express app
 const app = express();
+
+// Check if MONGODB_URI is set
+if (!process.env.MONGODB_URI) {
+  console.error('Error: MONGODB_URI is not defined in environment variables');
+  process.exit(1);
+}
 
 // Connect to MongoDB
 connectDB();
