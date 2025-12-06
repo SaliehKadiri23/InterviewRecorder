@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const passport = require('passport');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -9,11 +10,15 @@ const path = require('path');
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Import database connection
+// Import database connection and passport config
 const connectDB = require('./config/database');
+require('./config/passport');
 
 // Initialize express app
 const app = express();
+
+// Initialize passport middleware
+app.use(passport.initialize());
 
 // Check if MONGODB_URI is set
 if (!process.env.MONGODB_URI) {
