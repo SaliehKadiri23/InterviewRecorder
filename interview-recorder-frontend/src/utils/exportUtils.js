@@ -76,15 +76,34 @@ export const exportToJSON = (interviews) => {
 };
 
 // Export to PDF format (using jsPDF if available, otherwise just download JSON)
-export const exportToPDF = async (interviews) => {
-  if (!interviews || interviews.length === 0) {
-    throw new Error('No interviews to export');
+export const exportToPDF = async (data) => {
+  // Check if the data is an array of interviews or a statistics object
+  const isStatisticsReport = data.length === 1 && data[0] && data[0].statistics && data[0].roleDistribution;
+  
+  if (isStatisticsReport) {
+    // Handle statistics report export
+    const reportData = data[0];
+    return exportStatisticsToPDF(reportData);
+  } else {
+    // Handle regular interview export
+    const interviews = Array.isArray(data) ? data : [data];
+    if (!interviews || interviews.length === 0) {
+      throw new Error('No interviews to export');
+    }
+    
+    return exportInterviewsToPDF(interviews);
   }
+};
 
-  // Try to dynamically import jsPDF
+// Helper function to export interviews to PDF
+const exportInterviewsToPDF = async (interviews) => {
+  // Try to dynamically import jsPDF and jsPDF autotable plugin
   try {
     const jsPDF = await import('jspdf');
     const { jsPDF: JsPDF } = jsPDF;
+    
+    // Import the autotable plugin
+    const autoTable = await import('jspdf-autotable');
     
     const doc = new JsPDF();
     
@@ -116,45 +135,72 @@ export const exportToPDF = async (interviews) => {
     });
     
     // Add spacing before interview details
-    yPos += 10;
+    yPos += 15;
     
-    // Add interview details
-    doc.setFontSize(14);
-    doc.text('Interview Details', 14, yPos);
-    yPos += 10;
+    // Prepare data for the table
+    const tableColumn = ['Name', 'Role', 'Interviewer', 'Date', 'Responses'];
+    const tableRows = interviews.map(interview => [
+      interview.intervieweeName,
+      interview.intervieweeRole,
+      interview.interviewerMatricNumber,
+      format(new Date(interview.timestamp), 'yyyy-MM-dd'),
+      interview.responses ? Object.entries(interview.responses).map(([key, value]) => `${key}: ${value}`).join('\n') : ''
+    ]);
     
-    // Add each interview as a separate section
-    interviews.forEach(interview => {
-      if (yPos > 250) { // Check if we need a new page
-        doc.addPage();
-        yPos = 20;
+    // Use autotable to add the data in a nicely formatted table
+    autoTable.default(doc, {
+      startY: yPos,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }, // blue-600
+      styles: { 
+        cellPadding: 3,
+        fontSize: 8
       }
-      
-      doc.setFontSize(12);
-      doc.text(`Name: ${interview.intervieweeName}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Role: ${interview.intervieweeRole}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Interviewer: ${interview.interviewerMatricNumber}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Date: ${format(new Date(interview.timestamp), 'yyyy-MM-dd')}`, 14, yPos);
-      yPos += 6;
-      
-      // Add responses
-      if (interview.responses) {
-        doc.setFontSize(10);
-        Object.entries(interview.responses).forEach(([key, value]) => {
-          if (yPos > 250) { // Check if we need a new page
-            doc.addPage();
-            yPos = 20;
-          }
-          doc.text(`${key}: ${value}`, 18, yPos);
-          yPos += 5;
-        });
-      }
-      
-      yPos += 8; // Spacing between interviews
     });
+    
+    // Add a page for detailed responses if there are many interviews
+    if (interviews.length > 0) {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text('Detailed Responses', 14, 20);
+      
+      let yPos = 30;
+      
+      // Add each interview with detailed responses
+      interviews.forEach(interview => {
+        if (yPos > 250) { // Check if we need a new page
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        doc.setFontSize(12);
+        doc.text(`Name: ${interview.intervieweeName}`, 14, yPos);
+        yPos += 6;
+        doc.text(`Role: ${interview.intervieweeRole}`, 14, yPos);
+        yPos += 6;
+        doc.text(`Interviewer: ${interview.interviewerMatricNumber}`, 14, yPos);
+        yPos += 6;
+        doc.text(`Date: ${format(new Date(interview.timestamp), 'yyyy-MM-dd')}`, 14, yPos);
+        yPos += 6;
+        
+        // Add responses
+        if (interview.responses) {
+          doc.setFontSize(10);
+          Object.entries(interview.responses).forEach(([key, value]) => {
+            if (yPos > 250) { // Check if we need a new page
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(`${key}: ${value}`, 18, yPos);
+            yPos += 5;
+          });
+        }
+        
+        yPos += 8; // Spacing between interviews
+      });
+    }
     
     // Save the PDF
     const dateStr = format(new Date(), 'yyyy-MM-dd');
@@ -167,6 +213,200 @@ export const exportToPDF = async (interviews) => {
     const textBlob = new Blob([textReport], { type: 'text/plain' });
     const dateStr = format(new Date(), 'yyyy-MM-dd');
     const filename = `interviews_${dateStr}.txt`;
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(textBlob);
+    link.download = filename;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+// Helper function to export statistics to PDF
+const exportStatisticsToPDF = async (reportData) => {
+  try {
+    const jsPDF = await import('jspdf');
+    const { jsPDF: JsPDF } = jsPDF;
+    
+    // Import the autotable plugin
+    const autoTable = await import('jspdf-autotable');
+    
+    const doc = new JsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text('Interview Statistics Report', 14, 20);
+    
+    // Add date
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`, 14, 30);
+    
+    let yPos = 40;
+    
+    // Add overview statistics
+    doc.setFontSize(14);
+    doc.text('Overview Statistics', 14, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(12);
+    doc.text(`Total Interviews: ${reportData.statistics.totalInterviews}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Unique Interviewees: ${reportData.statistics.uniqueInterviewees}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Average Interviews per Day: ${reportData.statistics.avgPerDay}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Most Active Interviewer: ${reportData.statistics.mostActiveInterviewer}`, 14, yPos);
+    yPos += 12;
+    
+    // Role distribution table
+    doc.setFontSize(14);
+    doc.text('Role Distribution', 14, yPos);
+    yPos += 8;
+    
+    if (reportData.roleDistribution && reportData.roleDistribution.length > 0) {
+      const roleTableColumn = ['Role', 'Count', 'Percentage'];
+      const total = reportData.statistics.totalInterviews;
+      const roleTableRows = reportData.roleDistribution.map(item => [
+        item.name,
+        item.value.toString(),
+        `${((item.value / total) * 100).toFixed(1)}%`
+      ]);
+      
+      autoTable.default(doc, {
+        startY: yPos,
+        head: [roleTableColumn],
+        body: roleTableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] }, // blue-600
+        styles: { 
+          cellPadding: 3,
+          fontSize: 8
+        }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 10;
+    }
+    
+    // Interviewer performance table
+    doc.setFontSize(14);
+    doc.text('Interviewer Performance', 14, yPos);
+    yPos += 8;
+    
+    if (reportData.interviewerPerformance && reportData.interviewerPerformance.length > 0) {
+      const perfTableColumn = ['Interviewer', 'Count'];
+      const perfTableRows = reportData.interviewerPerformance.map(item => [
+        item.interviewer,
+        item.count.toString()
+      ]);
+      
+      autoTable.default(doc, {
+        startY: yPos,
+        head: [perfTableColumn],
+        body: perfTableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] }, // blue-600
+        styles: { 
+          cellPadding: 3,
+          fontSize: 8
+        }
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 10;
+    }
+    
+    // Add insights
+    doc.setFontSize(14);
+    doc.text('Key Insights', 14, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(12);
+    if (reportData.insights && reportData.insights.length > 0) {
+      reportData.insights.forEach(insight => {
+        if (yPos > 250) { // Check if we need a new page
+          doc.addPage();
+          yPos = 20;
+          doc.setFontSize(12);
+        }
+        doc.text(`• ${insight}`, 14, yPos);
+        yPos += 6;
+      });
+    } else {
+      doc.text('No insights available.', 14, yPos);
+      yPos += 6;
+    }
+    
+    // Add a page for response analysis by role
+    doc.addPage();
+    yPos = 20;
+    
+    doc.setFontSize(14);
+    doc.text('Response Analysis by Role', 14, yPos);
+    yPos += 12;
+    
+    // Student Analysis
+    if (reportData.responseAnalysis.Student && Object.keys(reportData.responseAnalysis.Student).length > 0) {
+      doc.setFontSize(12);
+      doc.text('Student Analysis:', 14, yPos);
+      yPos += 6;
+      
+      if (reportData.responseAnalysis.Student.avgSeverity) {
+        doc.text(`Average Severity Rating: ${reportData.responseAnalysis.Student.avgSeverity}`, 18, yPos);
+        yPos += 6;
+      }
+      
+      if (reportData.responseAnalysis.Student.frustrations && reportData.responseAnalysis.Student.frustrations.length > 0) {
+        doc.text('Common Frustrations:', 18, yPos);
+        yPos += 4;
+        reportData.responseAnalysis.Student.frustrations.slice(0, 5).forEach(item => {
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(12);
+          }
+          doc.text(`- ${item.word} (${item.count})`, 22, yPos);
+          yPos += 4;
+        });
+        yPos += 2;
+      }
+    }
+    
+    // Class Rep Analysis
+    if (reportData.responseAnalysis['Class Rep'] && Object.keys(reportData.responseAnalysis['Class Rep']).length > 0) {
+      doc.setFontSize(12);
+      doc.text('Class Rep Analysis:', 14, yPos);
+      yPos += 6;
+      
+      if (reportData.responseAnalysis['Class Rep'].avgMissRate) {
+        doc.text(`Average Miss Rate: ${reportData.responseAnalysis['Class Rep'].avgMissRate}`, 18, yPos);
+        yPos += 6;
+      }
+    }
+    
+    // Lecturer Analysis
+    if (reportData.responseAnalysis.Lecturer && Object.keys(reportData.responseAnalysis.Lecturer).length > 0) {
+      doc.setFontSize(12);
+      doc.text('Lecturer Analysis:', 14, yPos);
+      yPos += 6;
+      
+      if (reportData.responseAnalysis.Lecturer.avgAdvanceTime) {
+        doc.text(`Average Advance Time: ${reportData.responseAnalysis.Lecturer.avgAdvanceTime}`, 18, yPos);
+        yPos += 6;
+      }
+    }
+    
+    // Save the PDF
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    doc.save(`statistics_${dateStr}.pdf`);
+  } catch (error) {
+    console.error('Statistics PDF export failed:', error);
+    
+    // Fallback to text export
+    const textReport = generateSummaryReport(reportData.interviews || []);
+    const textBlob = new Blob([textReport], { type: 'text/plain' });
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const filename = `statistics_${dateStr}.txt`;
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(textBlob);
