@@ -1,8 +1,13 @@
 import { Outlet } from 'react-router-dom';
+import SyncStatus from '../sync/SyncStatus';
+import OnlineStatusBanner from './OnlineStatusBanner';
 
 export const Layout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Online/Offline Banner */}
+      <OnlineStatusBanner />
+      
       {/* Header */}
       <header className="bg-primary-600 text-white shadow">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -11,7 +16,7 @@ export const Layout = ({ children }) => {
             <ul className="flex space-x-4">
               <li><a href="/dashboard" className="hover:underline">Dashboard</a></li>
               <li><a href="/interviews" className="hover:underline">Interviews</a></li>
-              <li><a href="/profile" className="hover:underline">Profile</a></li>
+              <li><a href="/statistics" className="hover:underline">Statistics</a></li>
             </ul>
           </nav>
         </div>
@@ -28,6 +33,9 @@ export const Layout = ({ children }) => {
           <p>© 2025 Interview Recorder - CSC4301 Requirements Gathering Tool</p>
         </div>
       </footer>
+      
+      {/* Sync Status Widget */}
+      <SyncStatus />
     </div>
   );
 };
