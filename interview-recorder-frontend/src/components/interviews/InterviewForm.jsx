@@ -178,6 +178,8 @@ const InterviewForm = () => {
           const response = await axios.post('/api/interviews', interviewData);
           if (response.data.success) {
             setShowSuccess(true);
+            // Dispatch interview completion event
+            window.dispatchEvent(new CustomEvent('interviewCompleted'));
             setTimeout(() => {
               navigate('/interviews');
             }, 1500);
@@ -187,6 +189,8 @@ const InterviewForm = () => {
           const localId = await addInterview(interviewData);
           await addToSyncQueue('create', { ...interviewData, localId });
           setShowSuccess(true);
+          // Dispatch interview completion event
+          window.dispatchEvent(new CustomEvent('interviewCompleted'));
           setTimeout(() => {
             navigate('/interviews');
           }, 1500);
@@ -196,6 +200,8 @@ const InterviewForm = () => {
         const localId = await addInterview(interviewData);
         await addToSyncQueue('create', { ...interviewData, localId });
         setShowSuccess(true);
+        // Dispatch interview completion event
+        window.dispatchEvent(new CustomEvent('interviewCompleted'));
         setTimeout(() => {
           navigate('/interviews');
         }, 1500);

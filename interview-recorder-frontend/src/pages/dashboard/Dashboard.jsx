@@ -220,7 +220,7 @@ const Dashboard = () => {
           </div>
           <button
             onClick={handleLogout}
-            className="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-colors"
+            className="bg-white bg-opacity-20 text-red-700 font-semibold hover:bg-opacity-30 px-4 py-2 rounded-lg transition-colors"
           >
             Logout
           </button>
@@ -285,7 +285,7 @@ const Dashboard = () => {
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex justify-center items-center flex-wrap gap-4">
           <button
             onClick={() => navigate('/interviews/new')}
             className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
