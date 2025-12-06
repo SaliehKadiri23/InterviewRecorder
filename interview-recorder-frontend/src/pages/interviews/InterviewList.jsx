@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getInterviews } from '../../db/database';
 import { syncPendingInterviews } from '../../services/syncService';
@@ -95,50 +95,47 @@ const InterviewList = () => {
     fetchData();
   }, [isOnline]);
 
-  // Apply filters whenever interviews or filters change
-  useEffect(() => {
-    let result = [...interviews];
+  // Apply filters - using useCallback to prevent infinite re-renders
+  const applyFilters = useCallback((interviewList, currentFilters, currentUser) => {
+    let result = [...(interviewList || [])];
 
     // Apply search filter
-    if (filters.search) {
+    if (currentFilters.search) {
       result = result.filter(
         interview => 
-          interview.intervieweeName.toLowerCase().includes(filters.search.toLowerCase()) ||
-          interview.interviewerMatricNumber.toLowerCase().includes(filters.search.toLowerCase())
+          interview.intervieweeName.toLowerCase().includes(currentFilters.search.toLowerCase()) ||
+          interview.interviewerMatricNumber.toLowerCase().includes(currentFilters.search.toLowerCase())
       );
     }
 
     // Apply role filters
-    if (filters.roles.length > 0) {
-      result = result.filter(interview => filters.roles.includes(interview.intervieweeRole));
+    if (currentFilters.roles.length > 0) {
+      result = result.filter(interview => currentFilters.roles.includes(interview.intervieweeRole));
     }
 
     // Apply interviewer filter
-    if (filters.interviewer === 'my' && user) {
-      result = result.filter(interview => interview.interviewerMatricNumber === user.matricNumber);
-    } else if (filters.interviewer && filters.interviewer !== 'my') {
-      result = result.filter(interview => interview.interviewerMatricNumber === filters.interviewer);
+    if (currentFilters.interviewer === 'my' && currentUser) {
+      result = result.filter(interview => interview.interviewerMatricNumber === currentUser.matricNumber);
+    } else if (currentFilters.interviewer && currentFilters.interviewer !== 'my') {
+      result = result.filter(interview => interview.interviewerMatricNumber === currentFilters.interviewer);
     }
 
     // Apply date range filter
-    if (filters.dateFrom) {
-      result = result.filter(interview => new Date(interview.timestamp) >= new Date(filters.dateFrom));
+    if (currentFilters.dateFrom) {
+      result = result.filter(interview => new Date(interview.timestamp) >= new Date(currentFilters.dateFrom));
     }
-    if (filters.dateTo) {
-      result = result.filter(interview => new Date(interview.timestamp) <= new Date(filters.dateTo));
+    if (currentFilters.dateTo) {
+      result = result.filter(interview => new Date(interview.timestamp) <= new Date(currentFilters.dateTo));
     }
 
     // Apply sync status filter
-    if (filters.syncStatus === 'synced' && isOnline) {
-      // When online, we don't have local sync status, so this filter doesn't apply meaningfully
-      // In a real implementation, we might have sync-related data from the server
-    } else if (filters.syncStatus === 'pending' && !isOnline) {
+    if (currentFilters.syncStatus === 'pending' && !isOnline) {
       result = result.filter(interview => !interview.synced);
     }
 
     // Apply sorting
     result.sort((a, b) => {
-      switch (filters.sort) {
+      switch (currentFilters.sort) {
         case 'newest':
           return new Date(b.timestamp) - new Date(a.timestamp);
         case 'oldest':
@@ -152,12 +149,18 @@ const InterviewList = () => {
       }
     });
 
-    setFilteredInterviews(result);
-  }, [interviews, filters, user, isOnline]);
+    return result;
+  }, [isOnline]);
 
-  const handleFilterChange = (newFilters) => {
+  // Apply filters whenever interviews or filters change
+  useEffect(() => {
+    const result = applyFilters(interviews, filters, user);
+    setFilteredInterviews(result);
+  }, [interviews, filters, user, applyFilters]);
+
+  const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
-  };
+  }, []);
 
   const handleSync = async () => {
     try {

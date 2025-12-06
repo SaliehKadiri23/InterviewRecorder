@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, X, Filter, Calendar, Clock, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -35,8 +35,8 @@ const FilterPanel = ({
     return count;
   }, [roles, interviewer, dateRange, syncStatus, debouncedSearchTerm, sortOption]);
 
-  // Update parent when filters change
-  useEffect(() => {
+  // Update parent when filters change - using useCallback to prevent infinite loops
+  const handleFilterChange = useCallback(() => {
     const newFilters = {
       search: debouncedSearchTerm,
       roles,
@@ -50,27 +50,34 @@ const FilterPanel = ({
     onFilterChange(newFilters);
   }, [debouncedSearchTerm, roles, interviewer, dateRange, syncStatus, sortOption, onFilterChange]);
 
+  // Update parent when filters change
+  useEffect(() => {
+    handleFilterChange();
+  }, [handleFilterChange]);
+
   // Toggle role selection
-  const toggleRole = (role) => {
-    if (roles.includes(role)) {
-      setRoles(roles.filter(r => r !== role));
-    } else {
-      setRoles([...roles, role]);
-    }
-  };
+  const toggleRole = useCallback((role) => {
+    setRoles(prevRoles => {
+      if (prevRoles.includes(role)) {
+        return prevRoles.filter(r => r !== role);
+      } else {
+        return [...prevRoles, role];
+      }
+    });
+  }, []);
 
   // Clear all filters
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setSearchTerm('');
     setRoles([]);
     setInterviewer('');
     setDateRange({ from: '', to: '' });
     setSyncStatus('all');
     setSortOption('newest');
-  };
+  }, []);
 
   // Save preferences to localStorage
-  const savePreferences = () => {
+  const savePreferences = useCallback(() => {
     const preferences = {
       roles,
       interviewer,
@@ -79,7 +86,7 @@ const FilterPanel = ({
       sortOption
     };
     localStorage.setItem('interviewFilterPreferences', JSON.stringify(preferences));
-  };
+  }, [roles, interviewer, dateRange, syncStatus, sortOption]);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -101,23 +108,23 @@ const FilterPanel = ({
   // Save preferences when they change
   useEffect(() => {
     savePreferences();
-  }, [roles, interviewer, dateRange, syncStatus, sortOption]);
+  }, [savePreferences]);
 
   // Apply filters handler
-  const handleApplyFilters = () => {
+  const handleApplyFilters = useCallback(() => {
     // In this component, filters are applied automatically via useEffect
     // This function exists for UI consistency
-  };
+  }, []);
 
   // Reset to initial state
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     clearAllFilters();
-  };
+  }, [clearAllFilters]);
 
   // Toggle filter panel visibility on mobile
-  const toggleFilterPanel = () => {
-    setShowFilters(!showFilters);
-  };
+  const toggleFilterPanel = useCallback(() => {
+    setShowFilters(prev => !prev);
+  }, []);
 
   return (
     <div className={`bg-white rounded-lg shadow-md p-6 ${isMobile ? 'mb-4' : ''}`}>
@@ -229,7 +236,7 @@ const FilterPanel = ({
                 <input
                   type="date"
                   value={dateRange.from}
-                  onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -240,8 +247,8 @@ const FilterPanel = ({
                 <input
                   type="date"
                   value={dateRange.to}
-                  onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
